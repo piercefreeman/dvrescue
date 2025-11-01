@@ -22,15 +22,21 @@ set(dvrescue_SRCS
   ${dvrescue_SOURCES_PATH}/Common/Core.cpp
   ${dvrescue_SOURCES_PATH}/Common/Merge.cpp
   ${dvrescue_SOURCES_PATH}/Common/Output.cpp
+  ${dvrescue_SOURCES_PATH}/Common/Output_Captions_Decode.cpp
+  ${dvrescue_SOURCES_PATH}/Common/Output_Captions_Scc.cpp
   ${dvrescue_SOURCES_PATH}/Common/Output_Webvtt.cpp
   ${dvrescue_SOURCES_PATH}/Common/Output_Xml.cpp
   ${dvrescue_SOURCES_PATH}/Common/ProcessFile.cpp
-  ${dvrescue_SOURCES_PATH}/Source/ThirdParty/ccdecoder/ccdecoder_internal.c
-  ${dvrescue_SOURCES_PATH}/Source/ThirdParty/ccdecoder/ccdecoder_line21.c
-  ${dvrescue_SOURCES_PATH}/Source/ThirdParty/ccdecoder/ccdecoder_line21field.c
-  ${dvrescue_SOURCES_PATH}/Source/ThirdParty/ccdecoder/ccdecoder_onscreen.c
-  ${dvrescue_SOURCES_PATH}/Source/ThirdParty/ccdecoder/ccdecoder_subrip.c
-  ${dvrescue_SOURCES_PATH}/Source/ThirdParty/TimeCode/TimeCode.cpp
+  ${dvrescue_SOURCES_PATH}/Common/ProcessFileWrapper.cpp
+  ${dvrescue_SOURCES_PATH}/Common/SimulatorWrapper.cpp
+  ${dvrescue_SOURCES_PATH}/Common/Output_Mkv.cpp
+  ${dvrescue_SOURCES_PATH}/Common/SignalStats.cpp
+  ${dvrescue_SOURCES_PATH}/ThirdParty/ccdecoder/ccdecoder_internal.c
+  ${dvrescue_SOURCES_PATH}/ThirdParty/ccdecoder/ccdecoder_line21.c
+  ${dvrescue_SOURCES_PATH}/ThirdParty/ccdecoder/ccdecoder_line21field.c
+  ${dvrescue_SOURCES_PATH}/ThirdParty/ccdecoder/ccdecoder_onscreen.c
+  ${dvrescue_SOURCES_PATH}/ThirdParty/ccdecoder/ccdecoder_subrip.c
+  ${dvrescue_SOURCES_PATH}/ThirdParty/TimeCode/TimeCode.cpp
 )
 
 set(dvrescue_TOOLS
@@ -58,6 +64,22 @@ target_include_directories(dvrescue
   PRIVATE ${dvrescue_SOURCES_PATH}/ThirdParty/ccdecoder
   PRIVATE ${dvrescue_SOURCES_PATH}/ThirdParty/TimeCode
 )
+if(APPLE)
+  target_sources(dvrescue
+    PRIVATE
+      ${dvrescue_SOURCES_PATH}/Common/AvfCtl.m
+      ${dvrescue_SOURCES_PATH}/Common/AvfCtlWrapper.mm
+  )
+  target_compile_definitions(dvrescue
+    PRIVATE ENABLE_AVFCTL
+  )
+  target_link_libraries(dvrescue
+    "-framework AVFoundation"
+    "-framework CoreMedia"
+    "-framework Foundation"
+    "-framework IOKit"
+  )
+endif()
 target_link_libraries(dvrescue
   ${ZenLib_LIBRARY}
   ${MediaInfoLib_LIBRARY}

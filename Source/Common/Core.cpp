@@ -58,7 +58,8 @@ Core::~Core()
 
 //---------------------------------------------------------------------------
 vector<file*>   PerFile;
-atomic_bool     Terminate = false, Terminated = false;
+atomic_bool     Terminate(false);
+atomic_bool     Terminated(false);
 return_value Core::Process()
 {
     return_value ToReturn = ReturnValue_OK;

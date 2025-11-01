@@ -8,6 +8,7 @@
 #include "CLI/CommandLine_Parser.h"
 #include "CLI/CLI_Help.h"
 #include "Common/Core.h"
+#include "Common/ProcessFileWrapper.h"
 #include "TimeCode.h"
 #if defined(WINDOWS) && !defined(WINDOWS_UWP) && !defined(__BORLANDC__)
 #include <fcntl.h>
@@ -25,9 +26,12 @@ struct IUnknown; // Workaround for "combaseapi.h(229): error C2187: syntax error
 #else
 #include <ZenLib/Ztring.h>
 #endif
+#include <cctype>
 #include <cfloat>
+#include <cstdlib>
 #include <fstream>
 #include <iostream>
+#include <limits>
 #include <string>
 using namespace std;
 //---------------------------------------------------------------------------
@@ -70,6 +74,51 @@ static string CatpionKindsString()
     }
     Value.resize(Value.size() - 2);
     return Value;
+}
+
+//---------------------------------------------------------------------------
+static bool ParseFlushSize(const char* Value, uint64_t& FlushSize)
+{
+    if (!Value || !Value[0])
+        return false;
+
+    char* End = nullptr;
+    const long double Numeric = strtold(Value, &End);
+    if (End == Value || Numeric <= 0)
+        return false;
+
+    while (*End && isspace(static_cast<unsigned char>(*End)))
+        ++End;
+
+    string Suffix;
+    while (*End)
+    {
+        if (isspace(static_cast<unsigned char>(*End)))
+            return false;
+        Suffix.push_back(static_cast<char>(tolower(static_cast<unsigned char>(*End))));
+        ++End;
+    }
+
+    uint64_t Multiplier = 1;
+    if (Suffix.empty() || Suffix == "b")
+        Multiplier = 1;
+    else if (Suffix == "k" || Suffix == "kb" || Suffix == "kib")
+        Multiplier = 1024ULL;
+    else if (Suffix == "m" || Suffix == "mb" || Suffix == "mib")
+        Multiplier = 1024ULL * 1024ULL;
+    else if (Suffix == "g" || Suffix == "gb" || Suffix == "gib")
+        Multiplier = 1024ULL * 1024ULL * 1024ULL;
+    else if (Suffix == "t" || Suffix == "tb" || Suffix == "tib")
+        Multiplier = 1024ULL * 1024ULL * 1024ULL * 1024ULL;
+    else
+        return false;
+
+    const long double Scaled = Numeric * static_cast<long double>(Multiplier);
+    if (Scaled <= 0 || Scaled > static_cast<long double>(numeric_limits<uint64_t>::max()))
+        return false;
+
+    FlushSize = static_cast<uint64_t>(Scaled);
+    return FlushSize != 0;
 }
 
 //---------------------------------------------------------------------------
@@ -357,6 +406,25 @@ return_value Parse(Core &C, int argc, const char* argv_ansi[], const MediaInfoNa
                 OutputFrames_Speeds.push_back(OutputFrames_Speed);
                 OutputFrames_Concealeds.push_back(OutputFrames_Concealed);
             }
+        }
+        else if (!strcmp(argv_ansi[i], "--flush"))
+        {
+            if (++i >= argc)
+            {
+                if (C.Err)
+                    *C.Err << "Error: missing flush size after " << argv_ansi[i - 1] << ".\n";
+                ReturnValue = ReturnValue_ERROR;
+                continue;
+            }
+            uint64_t FlushSize = 0;
+            if (!ParseFlushSize(argv_ansi[i], FlushSize))
+            {
+                if (C.Err)
+                    *C.Err << "Error: invalid flush size '" << argv_ansi[i] << "' (use positive numbers with optional b, kb, mb, gb or tb suffix).\n";
+                ReturnValue = ReturnValue_ERROR;
+                continue;
+            }
+            Merge_Flush_Size = FlushSize;
         }
         else if (!strcmp(argv_ansi[i], "--merge-log"))
         {
