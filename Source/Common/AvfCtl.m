@@ -17,7 +17,8 @@
 #define VCR_CMD_PLAY                 0xC3
 #define VCR_CMD_WIND                 0xC4
 
-#define VCR_OPE_PLAY_FORWARD         0x38
+#define VCR_OPE_PLAY_FORWARD         0x75
+#define VCR_OPE_PLAY_FORWARD_SLOW    0x38
 #define VCR_OPE_PLAY_FORWARD_PAUSE   0x7D
 #define VCR_OPE_PLAY_REVERSE         0x48
 #define VCR_OPE_PLAY_REVERSE_PAUSE   0x6D
@@ -444,13 +445,13 @@
             case AVCaptureDeviceTransportControlsPlayingMode:
                 command[2] = VCR_CMD_PLAY;
                 if (theSpeed >= 2.0f)
-                    command[3] = VCR_OPE_PLAY_FORWARD + VCR_SPD_X7;
+                    command[3] = VCR_OPE_PLAY_FORWARD_SLOW + VCR_SPD_X7;
                 else if (theSpeed > 1.0f)
-                    command[3] = VCR_OPE_PLAY_FORWARD + VCR_SPD_X6;
+                    command[3] = VCR_OPE_PLAY_FORWARD_SLOW + VCR_SPD_X6;
                 else if (theSpeed == 1.0f)
                     command[3] = VCR_OPE_PLAY_FORWARD;
                 else if (theSpeed > 0.0f)
-                    command[3] = VCR_OPE_PLAY_FORWARD - VCR_SPD_X6;
+                    command[3] = VCR_OPE_PLAY_FORWARD_SLOW - VCR_SPD_X6;
                 else if (theSpeed == 0.0f)
                     command[3] = VCR_OPE_PLAY_FORWARD_PAUSE;
                 else if (theSpeed > -1.0f)

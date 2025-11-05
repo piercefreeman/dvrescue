@@ -193,6 +193,11 @@ All of these flags and options can also be viewed by typing ```dvrescue -h``` in
         Merge all input files into value (file name),
         picking the best part of each file.
 
+    --flush value
+        Flush merge outputs to disk every value bytes written.
+        value accepts optional b, kb, mb, gb or tb suffixes.
+        Default is to rely on standard buffered writes.
+
     --merge-log value
         Store merge log to value (file name).
 

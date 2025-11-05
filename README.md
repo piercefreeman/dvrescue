@@ -17,6 +17,27 @@ DVRescue is available for all major operating systems (macOS, Windows, and Linux
 
 Please see the documentation for more information on [installation](https://mipops.github.io/dvrescue/sections/installation.html) and [hardware setup](https://mipops.github.io/dvrescue/sections/dv_transfer_station.html) including troubleshooting tips.
 
+### Building from source
+
+The CLI can be built locally with CMake. From the project root:
+
+```
+cmake -S Project/CMake -B build -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+      -DCMAKE_CXX_FLAGS='-DENABLE_CAPTURE -DENABLE_SIMULATOR' \
+      -DCMAKE_C_FLAGS='-DENABLE_CAPTURE -DENABLE_SIMULATOR'
+cmake --build build -j8
+```
+
+The resulting binary lives at `build/dvrescue`. To expose it for other applications, copy it to a directory in your `PATH`, for example:
+
+```
+install build/dvrescue /usr/local/bin/
+```
+
+If multiple versions are in play, consider copying under a versioned name (e.g. `install build/dvrescue /usr/local/bin/dvrescue-dev`) and updating symlinks as needed.
+
+On macOS, this build automatically links the AVFoundation capture backend so that options such as `--list_devices` work with FireWire/i.Link decks. Make sure the Xcode command line tools are installed so the required system frameworks are available.
+
 ### Daily snapshots
 
 Daily snapshots of the compiled project are available for the command line tools ([CLI](https://mediaarea.net/download/snapshots/binary/dvrescue/)) and graphic user interface ([GUI](https://mediaarea.net/download/snapshots/binary/dvrescue-gui/)).

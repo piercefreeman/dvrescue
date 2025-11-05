@@ -58,3 +58,4 @@ Project/GNU/CLI/test-driver
 docs/_site/
 docs/.jekyll-cache/
 Source/GUI/dvrescue/build/
+build

@@ -19,6 +19,11 @@
 #include "TimeCode.h"
 #include "CLI/CLI_Help.h"
 using namespace ZenLib;
+#ifdef _WIN32
+#include <io.h>
+#else
+#include <unistd.h>
+#endif
 uint64_t VariableSize(const uint8_t* Buffer, size_t& Buffer_Offset, size_t Buffer_Size);
 //---------------------------------------------------------------------------
 
@@ -28,6 +33,7 @@ vector<FILE*> Merge_Out;
 uint64_t Merge_Out_Size = -1;
 vector<string> Merge_OutputFileNames;
 bool Merge_OutputFileNames_IncludesStdOut = false;
+uint64_t Merge_Flush_Size = 0;
 ostream* MergeInfo_Out = nullptr;
 ofstream Out;
 static ostream* Log;
@@ -47,6 +53,22 @@ void date_to_string(string& Data, int Years, int Months, int Days);
 
 namespace
 {
+#if defined(_WIN32)
+    inline void FlushFileHandle(FILE* F)
+    {
+        if (!F)
+            return;
+        _commit(_fileno(F));
+    }
+#else
+    inline void FlushFileHandle(FILE* F)
+    {
+        if (!F)
+            return;
+        fsync(fileno(F));
+    }
+#endif
+
     void Merge_Help()
     {
         if (MergeInfo_Format)
@@ -185,6 +207,8 @@ namespace
         FILE*               F_Takes = nullptr;
         size_t              F_Takes_Start = -1;
         uint64_t            F_Pos = 0;
+        uint64_t            Flush_Pending = 0;
+        vector<uint64_t>    Copies_Flush_Pending;
         uint8_t             OutputBuffer[144000 * 4];
         size_t              Count_Blocks[BlockStatus_Max] = {};
         size_t              Count_Blocks_NOK_Frames_NOK = 0;
@@ -364,12 +388,19 @@ bool dv_merge_private::Init()
     auto Input_Count = Merge_InputFileNames.size() + Merge_Rewind_Count;
 
     // Out config
+    Output.F = nullptr;
+    Output.Flush_Pending = 0;
+    Output.Copies.clear();
+    Output.Copies_Flush_Pending.clear();
     for (size_t Pos=0; Pos<Merge_Out.size(); Pos++)
     {
         if (!Pos)
             Output.F = Merge_Out[Pos];
         else
+        {
             Output.Copies.push_back(Merge_Out[Pos]);
+            Output.Copies_Flush_Pending.push_back(0);
+        }
     }
     Log = MergeInfo_Out ? MergeInfo_Out : (Merge_OutputFileNames_IncludesStdOut ? &cerr : &cout);
 
@@ -1528,6 +1559,16 @@ bool dv_merge_private::Process(float Speed)
             {
                 fwrite(Output.OutputBuffer, Write_Size, 1, Output.F);
                 Output.F_Pos += Write_Size;
+                if (Merge_Flush_Size)
+                {
+                    Output.Flush_Pending += Write_Size;
+                    if (Output.Flush_Pending >= Merge_Flush_Size)
+                    {
+                        fflush(Output.F);
+                        FlushFileHandle(Output.F);
+                        Output.Flush_Pending %= Merge_Flush_Size;
+                    }
+                }
             }
 
             for (size_t Pos = 0; Pos < Output.Copies.size(); Pos++)
@@ -1536,6 +1577,16 @@ bool dv_merge_private::Process(float Speed)
                     (!Frame_Speed || (OutputFrames_Speeds.size() > Pos+1 && OutputFrames_Speeds[Pos+1])))
                 {
                     fwrite(Output.OutputBuffer, Write_Size, 1, Output.Copies[Pos]);
+                    if (Merge_Flush_Size && Pos < Output.Copies_Flush_Pending.size())
+                    {
+                        Output.Copies_Flush_Pending[Pos] += Write_Size;
+                        if (Output.Copies_Flush_Pending[Pos] >= Merge_Flush_Size)
+                        {
+                            fflush(Output.Copies[Pos]);
+                            FlushFileHandle(Output.Copies[Pos]);
+                            Output.Copies_Flush_Pending[Pos] %= Merge_Flush_Size;
+                        }
+                    }
                 }
             }
 
@@ -1670,6 +1721,14 @@ void dv_merge_private::Finish()
     // Post-processing
     if (Stats())
         return;
+
+    if (Merge_Flush_Size)
+    {
+        if (Output.F)
+            FlushFileHandle(Output.F);
+        for (auto* Copy : Output.Copies)
+            FlushFileHandle(Copy);
+    }
 }
 
 //---------------------------------------------------------------------------
@@ -1829,4 +1888,11 @@ void dv_merge_private::AddFrameData(size_t InputPos, const uint8_t* Buffer, size
     if (!Input->DV_Data)
         Input->DV_Data = new dv_data;
     Input->DV_Data->push_back(Buffer, Buffer_Size);
+
+    // Process and write frames periodically during capture if flush is enabled
+    if (Merge_Flush_Size && Output.F)
+    {
+        // Process accumulated frames immediately
+        Process(0);
+    }
 }
